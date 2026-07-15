@@ -117,17 +117,13 @@ def preview(text, needle, radius=5):
 
 
 def insert_once(text, anchor_line, block, mode):
-    anchor = anchor_line
-    idx = text.find(anchor)
+    idx = text.find(anchor_line)
     if idx < 0:
         return None
     line_end = text.find('\n', idx)
     if line_end < 0:
         line_end = len(text)
-    if mode == 'after':
-        insert_at = line_end + 1 if line_end < len(text) else len(text)
-    else:
-        insert_at = idx
+    insert_at = line_end + 1 if mode == 'after' and line_end < len(text) else idx
     return text[:insert_at] + block + text[insert_at:]
 
 
@@ -188,13 +184,15 @@ def patch_func(patch, check_only=False):
         print(f"[-] [{patch['name']}] Scoped anchor not found: {patch['anchor_line']}")
         return False
     if check_only:
+        line = patch['insert_block'].splitlines()[1].strip()
         print(f"[+] [{patch['name']}] Dry-run function patch preview")
-        print(preview(new_scoped, patch['insert_block'].splitlines()[1].strip()))
+        print(preview(new_scoped, line))
         return True
     new_text = text[:start] + new_scoped + text[end:]
     path.write_text(new_text)
+    line = patch['insert_block'].splitlines()[1].strip()
     print(f"[+] [{patch['name']}] Patched and verified in {patch['file']}")
-    print(preview(new_scoped, patch['insert_block'].splitlines()[1].strip()))
+    print(preview(new_scoped, line))
     return True
 
 
