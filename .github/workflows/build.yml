@@ -37,7 +37,12 @@ jobs:
           cd -
           cp -r /tmp/ksu-next/kernel drivers/kernelsu
 
-      - name: Programmatically Inject KernelSU Manual Hooks
+      - name: Check KernelSU Hook Injection
+        run: |
+          cd kernel
+          python3 ../scripts/inject_ksu_hooks.py --check
+
+      - name: Apply KernelSU Hooks
         run: |
           cd kernel
           python3 ../scripts/inject_ksu_hooks.py
