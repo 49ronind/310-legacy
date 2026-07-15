@@ -7,7 +7,7 @@ def inject_scoped(filepath, func_sig, anchor_line, hook_code, mode="after"):
         print(f"[-] Error: File {filepath} not found!")
         sys.exit(1)
 
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     found_func = False
@@ -21,12 +21,12 @@ def inject_scoped(filepath, func_sig, anchor_line, hook_code, mode="after"):
                 print(f"[!] Notice: Hooks already verified inside scope of {filepath}")
                 return
             if mode == "after":
-                lines[i] = line + "
-" + hook_code + "
+                lines[i] = f"{line}
+{hook_code}
 "
             else:
-                lines[i] = hook_code + "
-" + line
+                lines[i] = f"{hook_code}
+{line}"
             patched = True
             break
 
@@ -34,50 +34,50 @@ def inject_scoped(filepath, func_sig, anchor_line, hook_code, mode="after"):
         print(f"[-] Error: Target signature loop matching failed in {filepath}!")
         sys.exit(1)
 
-    with open(filepath, "w") as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         f.writelines(lines)
 
     print(f"[+] Successfully verified and injected scope: {filepath}")
 
 
-exec_hook = """#ifdef CONFIG_KSU
+exec_hook = r'''#ifdef CONFIG_KSU
 \textern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);
 \tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
-#endif"""
+#endif'''
 inject_scoped("fs/exec.c", "do_execveat_common(", "int retval;", exec_hook)
 
-open_hook = """#ifdef CONFIG_KSU
+open_hook = r'''#ifdef CONFIG_KSU
 \textern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);
 \tksu_handle_faccessat(&dfd, &filename, &mode, NULL);
-#endif"""
+#endif'''
 inject_scoped("fs/open.c", "faccessat(", "unsigned int lookup_flags", open_hook)
 
-rw_hook = """#ifdef CONFIG_KSU
+rw_hook = r'''#ifdef CONFIG_KSU
 \tksu_handle_vfs_read(&file, &buf, &count, &pos);
-#endif"""
+#endif'''
 inject_scoped("fs/read_write.c", "vfs_read(", "if (!(file->f_mode & FMODE_CAN_READ))", rw_hook, mode="before")
 
-stat_hook = """#ifdef CONFIG_KSU
+stat_hook = r'''#ifdef CONFIG_KSU
 \textern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
 \tksu_handle_stat(&dfd, &filename, &flags);
-#endif"""
+#endif'''
 inject_scoped("fs/stat.c", "vfs_statx(", "struct path path;", stat_hook)
 
-reboot_decl = """#ifdef CONFIG_KSU
+reboot_decl = r'''#ifdef CONFIG_KSU
 extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);
-#endif"""
+#endif'''
 inject_scoped("kernel/reboot.c", "SYSCALL_DEFINE4(reboot", "SYSCALL_DEFINE4(reboot", reboot_decl, mode="before")
 
-reboot_call = """#ifdef CONFIG_KSU
+reboot_call = r'''#ifdef CONFIG_KSU
 \t{
 \t\tint ksu_ret = ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);
 \t\tif (ksu_ret) return ksu_ret;
 \t}
-#endif"""
+#endif'''
 inject_scoped("kernel/reboot.c", "SYSCALL_DEFINE4(reboot", "int ret = 0;", reboot_call)
 
-input_hook = """#ifdef CONFIG_KSU
+input_hook = r'''#ifdef CONFIG_KSU
 \textern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
 \tksu_handle_input_handle_event(&type, &code, &value);
-#endif"""
+#endif'''
 inject_scoped("drivers/input/input.c", "input_handle_event(", "input_get_disposition", input_hook)
