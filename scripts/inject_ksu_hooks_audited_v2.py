@@ -12,7 +12,10 @@ DECL_PATCHES = [
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);',
-        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);
+#endif
+',
     },
     {
         'name': 'open_decl',
@@ -20,7 +23,10 @@ DECL_PATCHES = [
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);',
-        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);
+#endif
+',
     },
     {
         'name': 'stat_decl',
@@ -28,7 +34,10 @@ DECL_PATCHES = [
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);',
-        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
+#endif
+',
     },
     {
         'name': 'reboot_decl',
@@ -36,7 +45,10 @@ DECL_PATCHES = [
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);',
-        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);
+#endif
+',
     },
     {
         'name': 'input_decl',
@@ -44,7 +56,10 @@ DECL_PATCHES = [
         'anchor_line': '#include <linux/input/mt.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);',
-        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
+#endif
+',
     },
 ]
 
@@ -56,7 +71,10 @@ FUNC_PATCHES = [
         'anchor_line': 'int retval;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_execveat(',
-        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+\tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
+#endif
+',
     },
     {
         'name': 'open',
@@ -65,7 +83,10 @@ FUNC_PATCHES = [
         'anchor_line': 'unsigned int lookup_flags = LOOKUP_FOLLOW;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_faccessat(',
-        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_faccessat(&dfd, &filename, &mode, NULL);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+\tksu_handle_faccessat(&dfd, &filename, &mode, NULL);
+#endif
+',
     },
     {
         'name': 'read',
@@ -74,7 +95,10 @@ FUNC_PATCHES = [
         'anchor_line': 'if (!(file->f_mode & FMODE_READ))',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_vfs_read(',
-        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_vfs_read(&file, &buf, &count, &pos);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+\tksu_handle_vfs_read(&file, &buf, &count, &pos);
+#endif
+',
     },
     {
         'name': 'stat',
@@ -83,7 +107,10 @@ FUNC_PATCHES = [
         'anchor_line': 'struct path path;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_stat(',
-        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_stat(&dfd, &filename, &flags);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+\tksu_handle_stat(&dfd, &filename, &flags);
+#endif
+',
     },
     {
         'name': 'reboot_call',
@@ -92,7 +119,13 @@ FUNC_PATCHES = [
         'anchor_line': 'int ret = 0;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_sys_reboot(',
-        'insert_block': '#ifdef CONFIG_KSU\n\t{\n\t\tint ksu_ret = ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);\n\t\tif (ksu_ret) return ksu_ret;\n\t}\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+\t{
+\t\tint ksu_ret = ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);
+\t\tif (ksu_ret) return ksu_ret;
+\t}
+#endif
+',
     },
     {
         'name': 'input',
@@ -101,7 +134,10 @@ FUNC_PATCHES = [
         'anchor_line': 'int disposition = input_get_disposition(dev, type, code, &value);',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_input_handle_event(',
-        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_input_handle_event(&type, &code, &value);\n#endif\n',
+        'insert_block': '#ifdef CONFIG_KSU
+\tksu_handle_input_handle_event(&type, &code, &value);
+#endif
+',
     },
 ]
 
@@ -112,7 +148,8 @@ def preview(text, needle, radius=5):
         if needle in line:
             start = max(0, i - radius)
             end = min(len(lines), i + radius + 1)
-            return '\n'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
+            return '
+'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
     return '(preview unavailable)'
 
 
@@ -120,7 +157,8 @@ def insert_once(text, anchor_line, block, mode):
     idx = text.find(anchor_line)
     if idx < 0:
         return None
-    line_end = text.find('\n', idx)
+    line_end = text.find('
+', idx)
     if line_end < 0:
         line_end = len(text)
     insert_at = line_end + 1 if mode == 'after' and line_end < len(text) else idx
