@@ -11,7 +11,6 @@ PATCHES = [
         "mode": "after",
         "hook_code": [
             "#ifdef CONFIG_KSU",
-            "extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);",
             "ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);",
             "#endif",
         ],
@@ -81,6 +80,17 @@ PATCHES = [
 ]
 
 DECLARATIONS = [
+    {
+        "name": "exec_decl",
+        "filepath": "fs/exec.c",
+        "anchor_line": "#include <linux/syscalls.h>",
+        "mode": "after",
+        "hook_code": [
+            "#ifdef CONFIG_KSU",
+            "extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);",
+            "#endif",
+        ],
+    },
     {
         "name": "open_decl",
         "filepath": "fs/open.c",
@@ -240,16 +250,19 @@ def apply_func_patch(patch, dry_run=False):
 
 def audit_patch_definitions():
     bad = []
-    for group in (DECLARATIONS, PATCHES):
-        for p in group:
-            joined = "\n".join(p["hook_code"])
-            if "\\t" in joined:
-                bad.append(f"{p['name']}: contains literal \\t")
-            if any(line.strip().startswith("extern int") for line in p["hook_code"]) and p in PATCHES:
-                bad.append(f"{p['name']}: declaration inside function patch")
+    for p in PATCHES:
+        joined = "\n".join(p["hook_code"])
+        if any(line.strip().startswith("extern int") for line in p["hook_code"]):
+            bad.append(f"{p['name']}: declaration inside function patch")
+        if '\\t' in joined:
+            bad.append(f"{p['name']}: contains literal \\t")
+    for p in DECLARATIONS:
+        joined = "\n".join(p["hook_code"])
+        if '\\t' in joined:
+            bad.append(f"{p['name']}: contains literal \\t")
     if bad:
         fail("Audit failed: " + "; ".join(bad))
-    ok("Static audit passed: no literal \\t and no function-scope extern declarations")
+    ok("Static audit passed")
 
 
 def main():
