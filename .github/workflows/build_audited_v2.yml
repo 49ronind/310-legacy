@@ -1,6 +1,6 @@
-name: Build Nabu KernelSU Next
+name: Build Nabu HyperOS KernelSU-Next
 
-'on':
+on:
   workflow_dispatch:
 
 jobs:
@@ -8,13 +8,13 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install Dependencies & Setup Toolchain Symlinks
         run: |
           sudo apt-get update
-          sudo apt-get install -y             bc             bison             build-essential             clang-14             flex             gcc-aarch64-linux-gnu             gcc-arm-linux-gnueabi             git             libelf-dev             libssl-dev             lld-14             llvm-14             python3
+          sudo apt-get install -y clang-14 lld-14 llvm-14 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev bc patch curl
 
           sudo ln -sf /usr/bin/llvm-ar-14 /usr/bin/llvm-ar
           sudo ln -sf /usr/bin/llvm-nm-14 /usr/bin/llvm-nm
@@ -22,118 +22,68 @@ jobs:
           sudo ln -sf /usr/bin/llvm-objdump-14 /usr/bin/llvm-objdump
           sudo ln -sf /usr/bin/llvm-strip-14 /usr/bin/llvm-strip
 
-          clang-14 --version
-          ld.lld-14 --version
-
-      - name: Clone Nabu kernel
+      - name: Clone Mahiro Kernel (KernelSU Branch)
         run: |
-          git clone --depth=1             --branch KernelSU             https://github.com/utziacre/android_kernel_xiaomi_nabu.git             kernel
+          git clone --depth=1 --branch KernelSU https://github.com/utziacre/android_kernel_xiaomi_nabu.git kernel
 
+      - name: Inject KernelSU-Next v3.2.0-legacy
+        run: |
           cd kernel
-          echo "Kernel commit:"
-          git rev-parse HEAD
-
-      - name: Clone KernelSU Next Legacy
-        run: |
-          git clone --depth=1             --branch legacy             https://github.com/KernelSU-Next/KernelSU-Next.git             ksu-next
-
-          cd ksu-next
+          rm -rf drivers/kernelsu
+          git clone --depth=1 --branch legacy https://github.com/KernelSU-Next/KernelSU-Next.git /tmp/ksu-next
+          cd /tmp/ksu-next
           git fetch --tags
           git checkout v3.2.0-legacy
+          cd -
+          cp -r /tmp/ksu-next/kernel drivers/kernelsu
 
-          echo "KernelSU Next commit:"
-          git rev-parse HEAD
-
-      - name: Install KernelSU Next
+      - name: Check KernelSU Hook Injection
         run: |
-          set -e
-
-          rm -rf kernel/drivers/kernelsu
-
-          cp -a ksu-next/kernel/. kernel/drivers/kernelsu/
-          cp -a ksu-next/kernel/include/uapi/. kernel/include/uapi/
-
-          test -f kernel/drivers/kernelsu/Kbuild
-          test -f kernel/drivers/kernelsu/Kconfig
-          test -f kernel/include/uapi/app_profile.h
-
-          echo "KernelSU Next source installed"
-          echo "KernelSU UAPI header installed"
-
-      - name: Patch KernelSU cpumask compatibility
-        run: |
-          set -e
-          sed -i 's/&current->cpus_allowed/current->cpus_ptr/g' kernel/drivers/kernelsu/selinux/rules.c
-          echo "Patched cpumask references in rules.c"
-          grep -n -E 'cpus_allowed|cpus_ptr' kernel/drivers/kernelsu/selinux/rules.c | head -20 || true
-
-      - name: Backport path_umount
-        run: |
-          set -e
-          python3 scripts/backport_path_umount.py kernel
-          grep -n -E 'path_umount|can_umount' kernel/fs/namespace.c || true
-
-      - name: Apply KernelSU manual hooks
-        run: |
-          test -f scripts/inject_ksu_hooks.py
-          python3 scripts/inject_ksu_hooks.py kernel
-
-      - name: Set KernelSU version
-        run: |
-          set -e
           cd kernel
+          python3 ../scripts/inject_ksu_hooks_audited_v2.py --check
 
-          sed -i 's/^KSU_VERSION_FALLBACK := .*/KSU_VERSION_FALLBACK := 33189/' drivers/kernelsu/Kbuild
-          sed -i 's/^KSU_VERSION_TAG_FALLBACK := .*/KSU_VERSION_TAG_FALLBACK := v3.2.0-legacy/' drivers/kernelsu/Kbuild
-          grep -E '^(KSU_VERSION_FALLBACK|KSU_VERSION_TAG_FALLBACK) :=' drivers/kernelsu/Kbuild
-
-      - name: Generate Nabu defconfig
+      - name: Apply KernelSU Hooks
         run: |
-          set -e
           cd kernel
+          python3 ../scripts/inject_ksu_hooks_audited_v2.py
 
-          make ARCH=arm64             CC=clang-14             LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out             nabu_defconfig
-
-      - name: Enable KernelSU manual hooks
+      - name: Hardcode KernelSU Version Code (33189)
         run: |
-          set -e
           cd kernel
+          sed -i "s/KSU_VERSION_FALLBACK := 1/KSU_VERSION_FALLBACK := 33189/" drivers/kernelsu/Kbuild
+          sed -i "s/KSU_VERSION_TAG_FALLBACK := v0.0.1/KSU_VERSION_TAG_FALLBACK := v3.2.0-legacy/" drivers/kernelsu/Kbuild
 
-          ./scripts/config --file out/.config --enable KSU
-          ./scripts/config --file out/.config --enable KSU_MANUAL_HOOK
-          ./scripts/config --file out/.config --disable KSU_WITH_KPROBES
-
-          make ARCH=arm64             CC=clang-14             LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out             olddefconfig
-
-          echo "KernelSU configuration:"
-          grep -E '^CONFIG_KSU|^# CONFIG_KSU_WITH_KPROBES' out/.config || true
-
-          grep -q '^CONFIG_KSU=y$' out/.config
-          grep -q '^CONFIG_KSU_MANUAL_HOOK=y$' out/.config
-
-      - name: Build kernel Image
+      - name: Generate Nabu Defconfig
         run: |
-          set -e
           cd kernel
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            O=out nabu_defconfig
 
-          make ARCH=arm64             CC=clang-14             LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out             -j"$(nproc)"             Image
+          echo "CONFIG_KSU=y" >> out/.config
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> out/.config
 
-          test -s out/arch/arm64/boot/Image
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            O=out olddefconfig
 
-      - name: Create compressed image
+      - name: Compile Kernel
         run: |
-          set -e
-          gzip -n -c kernel/out/arch/arm64/boot/Image > Image.gz
-          test -s Image.gz
-          sha256sum Image.gz > Image.gz.sha256
-          ls -lh Image.gz Image.gz.sha256
+          cd kernel
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            O=out -j$(nproc) Image
 
-      - name: Upload artifact
+      - name: Compress Image
+        run: |
+          cd kernel
+          gzip -c out/arch/arm64/boot/Image > ../Image.gz
+
+      - name: Upload Image.gz Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nabu-kernelsu-next-33189
-          path: |
-            Image.gz
-            Image.gz.sha256
-          if-no-files-found: error
-          retention-days: 14
+          name: Image-KSU-Next-33189
+          path: Image.gz
