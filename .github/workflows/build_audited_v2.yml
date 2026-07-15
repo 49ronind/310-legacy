@@ -11,11 +11,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Verify hook injector syntax
+        run: python3 -m py_compile scripts/inject_ksu_hooks_audited_v2.py
+
       - name: Install Dependencies & Setup Toolchain Symlinks
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-14 lld-14 llvm-14 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev bc patch curl
-
           sudo ln -sf /usr/bin/llvm-ar-14 /usr/bin/llvm-ar
           sudo ln -sf /usr/bin/llvm-nm-14 /usr/bin/llvm-nm
           sudo ln -sf /usr/bin/llvm-objcopy-14 /usr/bin/llvm-objcopy
@@ -23,17 +25,16 @@ jobs:
           sudo ln -sf /usr/bin/llvm-strip-14 /usr/bin/llvm-strip
 
       - name: Clone Mahiro Kernel (KernelSU Branch)
-        run: |
-          git clone --depth=1 --branch KernelSU https://github.com/utziacre/android_kernel_xiaomi_nabu.git kernel
+        run: git clone --depth=1 --branch KernelSU https://github.com/utziacre/android_kernel_xiaomi_nabu.git kernel
 
-      - name: Inject KernelSU-Next v3.2.0-legacy
+      - name: Inject KernelSU-Next v3.1.0-legacy
         run: |
           cd kernel
           rm -rf drivers/kernelsu
           git clone --depth=1 --branch legacy https://github.com/KernelSU-Next/KernelSU-Next.git /tmp/ksu-next
           cd /tmp/ksu-next
           git fetch --tags
-          git checkout v3.2.0-legacy
+          git checkout v3.1.0-legacy
           cd -
           cp -r /tmp/ksu-next/kernel drivers/kernelsu
 
@@ -51,7 +52,7 @@ jobs:
         run: |
           cd kernel
           sed -i "s/KSU_VERSION_FALLBACK := 1/KSU_VERSION_FALLBACK := 33189/" drivers/kernelsu/Kbuild
-          sed -i "s/KSU_VERSION_TAG_FALLBACK := v0.0.1/KSU_VERSION_TAG_FALLBACK := v3.2.0-legacy/" drivers/kernelsu/Kbuild
+          sed -i "s/KSU_VERSION_TAG_FALLBACK := v0.0.1/KSU_VERSION_TAG_FALLBACK := v3.1.0-legacy/" drivers/kernelsu/Kbuild
 
       - name: Generate Nabu Defconfig
         run: |
@@ -60,10 +61,8 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             O=out nabu_defconfig
-
           echo "CONFIG_KSU=y" >> out/.config
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> out/.config
-
           make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
@@ -85,5 +84,5 @@ jobs:
       - name: Upload Image.gz Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Image-KSU-Next-33189
+          name: Image-KSU-Next-v3.1.0-legacy-33189
           path: Image.gz
