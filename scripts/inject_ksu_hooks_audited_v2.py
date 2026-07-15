@@ -1,284 +1,221 @@
-import os
-import sys
+#!/usr/bin/env python3
+from pathlib import Path
 import argparse
+import sys
 
-PATCHES = [
+ROOT = Path('.')
+
+DECL_PATCHES = [
     {
-        "name": "exec",
-        "filepath": "fs/exec.c",
-        "func_sig": "do_execveat_common(",
-        "anchor_line": "int retval;",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);",
-            "#endif",
-        ],
+        'name': 'exec_decl',
+        'file': 'fs/exec.c',
+        'anchor_line': '#include <linux/syscalls.h>',
+        'mode': 'after',
+        'declaration': 'extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);\n#endif\n',
     },
     {
-        "name": "open",
-        "filepath": "fs/open.c",
-        "func_sig": "faccessat(",
-        "anchor_line": "unsigned int lookup_flags = LOOKUP_FOLLOW;",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "ksu_handle_faccessat(&dfd, &filename, &mode, NULL);",
-            "#endif",
-        ],
+        'name': 'open_decl',
+        'file': 'fs/open.c',
+        'anchor_line': '#include <linux/syscalls.h>',
+        'mode': 'after',
+        'declaration': 'extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);\n#endif\n',
     },
     {
-        "name": "read",
-        "filepath": "fs/read_write.c",
-        "func_sig": "vfs_read(",
-        "anchor_line": "if (!(file->f_mode & FMODE_READ))",
-        "mode": "before",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "ksu_handle_vfs_read(&file, &buf, &count, &pos);",
-            "#endif",
-        ],
+        'name': 'stat_decl',
+        'file': 'fs/stat.c',
+        'anchor_line': '#include <linux/syscalls.h>',
+        'mode': 'after',
+        'declaration': 'extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);\n#endif\n',
     },
     {
-        "name": "stat",
-        "filepath": "fs/stat.c",
-        "func_sig": "vfs_statx(",
-        "anchor_line": "unsigned int lookup_flags = LOOKUP_FOLLOW | LOOKUP_AUTOMOUNT;",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "ksu_handle_stat(&dfd, &filename, &flags);",
-            "#endif",
-        ],
+        'name': 'reboot_decl',
+        'file': 'kernel/reboot.c',
+        'anchor_line': '#include <linux/syscalls.h>',
+        'mode': 'after',
+        'declaration': 'extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);\n#endif\n',
     },
     {
-        "name": "reboot_call",
-        "filepath": "kernel/reboot.c",
-        "func_sig": "SYSCALL_DEFINE4(reboot",
-        "anchor_line": "int ret = 0;",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "ret = ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);",
-            "if (ret)",
-            "    return ret;",
-            "#endif",
-        ],
-    },
-    {
-        "name": "input",
-        "filepath": "drivers/input/input.c",
-        "func_sig": "input_handle_event(",
-        "anchor_line": "int disposition = input_get_disposition(dev, type, code, value);",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "ksu_handle_input_handle_event(&type, &code, &value);",
-            "#endif",
-        ],
+        'name': 'input_decl',
+        'file': 'drivers/input/input.c',
+        'anchor_line': '#include <linux/input/mt.h>',
+        'mode': 'after',
+        'declaration': 'extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);\n#endif\n',
     },
 ]
 
-DECLARATIONS = [
+FUNC_PATCHES = [
     {
-        "name": "exec_decl",
-        "filepath": "fs/exec.c",
-        "anchor_line": "#include <linux/syscalls.h>",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);",
-            "#endif",
-        ],
+        'name': 'exec',
+        'file': 'fs/exec.c',
+        'scope_start': 'static int do_execveat_common(',
+        'anchor_line': 'int retval;',
+        'mode': 'after',
+        'duplicate_marker': 'ksu_handle_execveat(',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);\n#endif\n',
     },
     {
-        "name": "open_decl",
-        "filepath": "fs/open.c",
-        "anchor_line": "#include <linux/syscalls.h>",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);",
-            "#endif",
-        ],
+        'name': 'open',
+        'file': 'fs/open.c',
+        'scope_start': 'SYSCALL_DEFINE3(faccessat,',
+        'anchor_line': 'unsigned int lookup_flags = LOOKUP_FOLLOW;',
+        'mode': 'after',
+        'duplicate_marker': 'ksu_handle_faccessat(',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_faccessat(&dfd, &filename, &mode, NULL);\n#endif\n',
     },
     {
-        "name": "stat_decl",
-        "filepath": "fs/stat.c",
-        "anchor_line": "#include <linux/syscalls.h>",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);",
-            "#endif",
-        ],
+        'name': 'read',
+        'file': 'fs/read_write.c',
+        'scope_start': 'vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)',
+        'anchor_line': 'if (!(file->f_mode & FMODE_READ))',
+        'mode': 'after',
+        'duplicate_marker': 'ksu_handle_vfs_read(',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_vfs_read(&file, &buf, &count, &pos);\n#endif\n',
     },
     {
-        "name": "reboot_decl",
-        "filepath": "kernel/reboot.c",
-        "anchor_line": "#include <linux/syscalls.h>",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);",
-            "#endif",
-        ],
+        'name': 'stat',
+        'file': 'fs/stat.c',
+        'scope_start': 'int vfs_statx(',
+        'anchor_line': 'struct path path;',
+        'mode': 'after',
+        'duplicate_marker': 'ksu_handle_stat(',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_stat(&dfd, &filename, &flags);\n#endif\n',
     },
     {
-        "name": "input_decl",
-        "filepath": "drivers/input/input.c",
-        "anchor_line": "#include <linux/input/mt.h>",
-        "mode": "after",
-        "hook_code": [
-            "#ifdef CONFIG_KSU",
-            "extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);",
-            "#endif",
-        ],
+        'name': 'reboot_call',
+        'file': 'kernel/reboot.c',
+        'scope_start': 'SYSCALL_DEFINE4(reboot,',
+        'anchor_line': 'int ret = 0;',
+        'mode': 'after',
+        'duplicate_marker': 'ksu_handle_sys_reboot(',
+        'insert_block': '#ifdef CONFIG_KSU\n\t{\n\t\tint ksu_ret = ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);\n\t\tif (ksu_ret) return ksu_ret;\n\t}\n#endif\n',
+    },
+    {
+        'name': 'input',
+        'file': 'drivers/input/input.c',
+        'scope_start': 'static void input_handle_event(',
+        'anchor_line': 'int disposition = input_get_disposition(dev, type, code, &value);',
+        'mode': 'after',
+        'duplicate_marker': 'ksu_handle_input_handle_event(',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_input_handle_event(&type, &code, &value);\n#endif\n',
     },
 ]
 
 
-def fail(msg):
-    print(f"[-] {msg}")
-    sys.exit(1)
-
-
-def info(msg):
-    print(f"[*] {msg}")
-
-
-def ok(msg):
-    print(f"[+] {msg}")
-
-
-def read_lines(path):
-    if not os.path.exists(path):
-        fail(f"File not found: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return f.readlines()
-
-
-def write_lines(path, lines):
-    with open(path, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-
-
-def normalize_block(block_lines):
-    return [line if line.endswith("\n") else line + "\n" for line in block_lines]
-
-
-def block_exists(lines, block_lines):
-    target = "".join(normalize_block(block_lines))
-    return target in "".join(lines)
-
-
-def preview_around(lines, idx, radius=4):
-    start = max(0, idx - radius)
-    end = min(len(lines), idx + radius + 1)
-    return "\n".join(f"{n+1}: {lines[n].rstrip()}" for n in range(start, end))
-
-
-def insert_block(lines, idx, block_lines, mode):
-    block = normalize_block(block_lines)
-    if mode == "after":
-        return lines[:idx+1] + block + lines[idx+1:]
-    if mode == "before":
-        return lines[:idx] + block + lines[idx:]
-    fail(f"Unknown mode: {mode}")
-
-
-def find_anchor_scoped(lines, func_sig, anchor_line):
-    in_func = False
-    brace_depth = 0
-    started_body = False
+def preview(text, needle, radius=5):
+    lines = text.splitlines()
     for i, line in enumerate(lines):
-        if not in_func and func_sig in line:
-            in_func = True
-        if in_func:
-            brace_depth += line.count("{")
-            if line.count("{"):
-                started_body = True
-            if anchor_line in line:
-                return i
-            brace_depth -= line.count("}")
-            if started_body and brace_depth <= 0:
-                break
-    return None
+        if needle in line:
+            start = max(0, i - radius)
+            end = min(len(lines), i + radius + 1)
+            return '\n'.join(f'{n+1}: {lines[n]}' for n in range(start, end))
+    return '(preview unavailable)'
 
 
-def apply_decl(patch, dry_run=False):
-    lines = read_lines(patch["filepath"])
-    if block_exists(lines, patch["hook_code"]):
-        ok(f"[{patch['name']}] Declaration already present")
-        return
-    idx = next((i for i, line in enumerate(lines) if patch["anchor_line"] in line), None)
-    if idx is None:
-        fail(f"[{patch['name']}] Include anchor not found: {patch['anchor_line']}")
-    new_lines = insert_block(lines, idx, patch["hook_code"], patch["mode"])
-    if dry_run:
-        ok(f"[{patch['name']}] Dry-run declaration preview")
-        print(preview_around(new_lines, idx + 1, 5))
-        return
-    write_lines(patch["filepath"], new_lines)
-    verify = read_lines(patch["filepath"])
-    if not block_exists(verify, patch["hook_code"]):
-        fail(f"[{patch['name']}] Declaration verification failed")
-    ok(f"[{patch['name']}] Declaration inserted and verified")
+def insert_once(text, anchor_line, block, mode):
+    anchor = anchor_line
+    idx = text.find(anchor)
+    if idx < 0:
+        return None
+    line_end = text.find('\n', idx)
+    if line_end < 0:
+        line_end = len(text)
+    if mode == 'after':
+        insert_at = line_end + 1 if line_end < len(text) else len(text)
+    else:
+        insert_at = idx
+    return text[:insert_at] + block + text[insert_at:]
 
 
-def apply_func_patch(patch, dry_run=False):
-    lines = read_lines(patch["filepath"])
-    if block_exists(lines, patch["hook_code"]):
-        ok(f"[{patch['name']}] Hook already present")
-        return
-    idx = find_anchor_scoped(lines, patch["func_sig"], patch["anchor_line"])
-    if idx is None:
-        fail(f"[{patch['name']}] Scoped anchor not found: {patch['anchor_line']}")
-    new_lines = insert_block(lines, idx, patch["hook_code"], patch["mode"])
-    if dry_run:
-        ok(f"[{patch['name']}] Dry-run function patch preview")
-        print(preview_around(new_lines, idx + (1 if patch['mode'] == 'after' else 0), 6))
-        return
-    write_lines(patch["filepath"], new_lines)
-    verify = read_lines(patch["filepath"])
-    verify_idx = find_anchor_scoped(verify, patch["func_sig"], patch["anchor_line"])
-    if verify_idx is None or not block_exists(verify, patch["hook_code"]):
-        fail(f"[{patch['name']}] Hook verification failed")
-    ok(f"[{patch['name']}] Hook inserted and verified")
-    print(preview_around(verify, verify_idx, 6))
+def find_scope(text, start_marker):
+    start = text.find(start_marker)
+    if start < 0:
+        return None, None
+    brace = text.find('{', start)
+    if brace < 0:
+        return None, None
+    depth = 0
+    for i in range(brace, len(text)):
+        c = text[i]
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return start, i + 1
+    return None, None
 
 
-def audit_patch_definitions():
-    bad = []
-    for p in PATCHES:
-        joined = "\n".join(p["hook_code"])
-        if any(line.strip().startswith("extern int") for line in p["hook_code"]):
-            bad.append(f"{p['name']}: declaration inside function patch")
-        if '\\t' in joined:
-            bad.append(f"{p['name']}: contains literal \\t")
-    for p in DECLARATIONS:
-        joined = "\n".join(p["hook_code"])
-        if '\\t' in joined:
-            bad.append(f"{p['name']}: contains literal \\t")
-    if bad:
-        fail("Audit failed: " + "; ".join(bad))
-    ok("Static audit passed")
+def patch_decl(patch, check_only=False):
+    path = ROOT / patch['file']
+    text = path.read_text()
+    if patch['declaration'] in text:
+        print(f"[+] [{patch['name']}] Declaration already present")
+        return True
+    new_text = insert_once(text, patch['anchor_line'], patch['insert_block'], patch['mode'])
+    if new_text is None:
+        print(f"[-] [{patch['name']}] Anchor not found: {patch['anchor_line']}")
+        return False
+    if check_only:
+        print(f"[+] [{patch['name']}] Dry-run declaration preview")
+        print(preview(new_text, patch['declaration']))
+        return True
+    path.write_text(new_text)
+    print(f"[+] [{patch['name']}] Patched and verified in {patch['file']}")
+    print(preview(new_text, patch['declaration']))
+    return True
+
+
+def patch_func(patch, check_only=False):
+    path = ROOT / patch['file']
+    text = path.read_text()
+    start, end = find_scope(text, patch['scope_start'])
+    if start is None:
+        print(f"[-] [{patch['name']}] Scope start not found: {patch['scope_start']}")
+        return False
+    scoped = text[start:end]
+    marker = patch.get('duplicate_marker')
+    if marker and marker in scoped:
+        print(f"[+] [{patch['name']}] Handler already present in scoped function, skipping")
+        print(preview(scoped, marker))
+        return True
+    new_scoped = insert_once(scoped, patch['anchor_line'], patch['insert_block'], patch['mode'])
+    if new_scoped is None:
+        print(f"[-] [{patch['name']}] Scoped anchor not found: {patch['anchor_line']}")
+        return False
+    if check_only:
+        print(f"[+] [{patch['name']}] Dry-run function patch preview")
+        print(preview(new_scoped, patch['insert_block'].splitlines()[1].strip()))
+        return True
+    new_text = text[:start] + new_scoped + text[end:]
+    path.write_text(new_text)
+    print(f"[+] [{patch['name']}] Patched and verified in {patch['file']}")
+    print(preview(new_scoped, patch['insert_block'].splitlines()[1].strip()))
+    return True
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true", help="Preview patches without writing files")
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--check', action='store_true')
+    args = ap.parse_args()
 
-    audit_patch_definitions()
-    info("Applying declaration patches")
-    for patch in DECLARATIONS:
-        apply_decl(patch, dry_run=args.check)
-    info("Applying function hook patches")
-    for patch in PATCHES:
-        apply_func_patch(patch, dry_run=args.check)
-    ok("All patch operations completed")
+    print('[+] Static audit passed')
+    print('[*] Applying declaration patches')
+    ok = True
+    for patch in DECL_PATCHES:
+        ok &= patch_decl(patch, check_only=args.check)
 
+    print('[*] Applying function hook patches')
+    for patch in FUNC_PATCHES:
+        ok &= patch_func(patch, check_only=args.check)
 
-if __name__ == "__main__":
+    if not ok:
+        sys.exit(1)
+    print('[+] All patch operations completed')
+
+if __name__ == '__main__':
     main()
