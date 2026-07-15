@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-14 lld-14 llvm-14 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev bc patch curl
-          
+
           sudo ln -sf /usr/bin/llvm-ar-14 /usr/bin/llvm-ar
           sudo ln -sf /usr/bin/llvm-nm-14 /usr/bin/llvm-nm
           sudo ln -sf /usr/bin/llvm-objcopy-14 /usr/bin/llvm-objcopy
@@ -55,8 +55,7 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             O=out nabu_defconfig
-            
-          # Force enable KSU options AFTER defconfig generation just to be absolutely safe
+
           echo "CONFIG_KSU=y" >> out/.config
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> out/.config
 
