@@ -39,12 +39,12 @@ jobs:
       - name: Check KernelSU Hook Injection
         run: |
           cd kernel
-          python3 ../scripts/inject_ksu_hooks_audited.py --check
+          python3 ../scripts/inject_ksu_hooks_audited_v2.py --check
 
       - name: Apply KernelSU Hooks
         run: |
           cd kernel
-          python3 ../scripts/inject_ksu_hooks_audited.py
+          python3 ../scripts/inject_ksu_hooks_audited_v2.py
 
       - name: Hardcode KernelSU Version Code (33189)
         run: |
