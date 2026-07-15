@@ -19,8 +19,8 @@ PATCHES = [
         "name": "open",
         "filepath": "fs/open.c",
         "func_sig": "faccessat(",
-        "anchor_line": "if (mode & S_IWOTH)",
-        "mode": "before",
+        "anchor_line": "unsigned int lookup_flags = LOOKUP_FOLLOW;",
+        "mode": "after",
         "hook_code": [
             "#ifdef CONFIG_KSU",
             "ksu_handle_faccessat(&dfd, &filename, &mode, NULL);",
