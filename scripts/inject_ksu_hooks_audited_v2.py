@@ -12,10 +12,7 @@ DECL_PATCHES = [
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);',
-        'insert_block': '#ifdef CONFIG_KSU
-extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);\n#endif\n',
     },
     {
         'name': 'open_decl',
@@ -23,10 +20,7 @@ extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *ar
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);',
-        'insert_block': '#ifdef CONFIG_KSU
-extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *flags);\n#endif\n',
     },
     {
         'name': 'stat_decl',
@@ -34,10 +28,7 @@ extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);',
-        'insert_block': '#ifdef CONFIG_KSU
-extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);\n#endif\n',
     },
     {
         'name': 'reboot_decl',
@@ -45,10 +36,7 @@ extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *fla
         'anchor_line': '#include <linux/syscalls.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);',
-        'insert_block': '#ifdef CONFIG_KSU
-extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);\n#endif\n',
     },
     {
         'name': 'input_decl',
@@ -56,10 +44,7 @@ extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void 
         'anchor_line': '#include <linux/input/mt.h>',
         'mode': 'after',
         'declaration': 'extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);',
-        'insert_block': '#ifdef CONFIG_KSU
-extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\nextern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);\n#endif\n',
     },
 ]
 
@@ -71,10 +56,7 @@ FUNC_PATCHES = [
         'anchor_line': 'int retval;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_execveat(',
-        'insert_block': '#ifdef CONFIG_KSU
-\tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);\n#endif\n',
     },
     {
         'name': 'open',
@@ -83,10 +65,7 @@ FUNC_PATCHES = [
         'anchor_line': 'unsigned int lookup_flags = LOOKUP_FOLLOW;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_faccessat(',
-        'insert_block': '#ifdef CONFIG_KSU
-\tksu_handle_faccessat(&dfd, &filename, &mode, NULL);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_faccessat(&dfd, &filename, &mode, NULL);\n#endif\n',
     },
     {
         'name': 'read',
@@ -95,10 +74,7 @@ FUNC_PATCHES = [
         'anchor_line': 'if (!(file->f_mode & FMODE_READ))',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_vfs_read(',
-        'insert_block': '#ifdef CONFIG_KSU
-\tksu_handle_vfs_read(&file, &buf, &count, &pos);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_vfs_read(&file, &buf, &count, &pos);\n#endif\n',
     },
     {
         'name': 'stat',
@@ -107,10 +83,7 @@ FUNC_PATCHES = [
         'anchor_line': 'struct path path;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_stat(',
-        'insert_block': '#ifdef CONFIG_KSU
-\tksu_handle_stat(&dfd, &filename, &flags);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_stat(&dfd, &filename, &flags);\n#endif\n',
     },
     {
         'name': 'reboot_call',
@@ -119,13 +92,7 @@ FUNC_PATCHES = [
         'anchor_line': 'int ret = 0;',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_sys_reboot(',
-        'insert_block': '#ifdef CONFIG_KSU
-\t{
-\t\tint ksu_ret = ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);
-\t\tif (ksu_ret) return ksu_ret;
-\t}
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\n\t{\n\t\tint ksu_ret = ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg);\n\t\tif (ksu_ret) return ksu_ret;\n\t}\n#endif\n',
     },
     {
         'name': 'input',
@@ -134,10 +101,7 @@ FUNC_PATCHES = [
         'anchor_line': 'int disposition = input_get_disposition(dev, type, code, &value);',
         'mode': 'after',
         'duplicate_marker': 'ksu_handle_input_handle_event(',
-        'insert_block': '#ifdef CONFIG_KSU
-\tksu_handle_input_handle_event(&type, &code, &value);
-#endif
-',
+        'insert_block': '#ifdef CONFIG_KSU\n\tksu_handle_input_handle_event(&type, &code, &value);\n#endif\n',
     },
 ]
 
@@ -148,8 +112,7 @@ def preview(text, needle, radius=5):
         if needle in line:
             start = max(0, i - radius)
             end = min(len(lines), i + radius + 1)
-            return '
-'.join(f'{n+1}: {lines[n]}' for n in range(start, end))
+            return '\n'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
     return '(preview unavailable)'
 
 
@@ -157,8 +120,7 @@ def insert_once(text, anchor_line, block, mode):
     idx = text.find(anchor_line)
     if idx < 0:
         return None
-    line_end = text.find('
-', idx)
+    line_end = text.find('\n', idx)
     if line_end < 0:
         line_end = len(text)
     insert_at = line_end + 1 if mode == 'after' and line_end < len(text) else idx
@@ -174,10 +136,9 @@ def find_scope(text, start_marker):
         return None, None
     depth = 0
     for i in range(brace, len(text)):
-        c = text[i]
-        if c == '{':
+        if text[i] == '{':
             depth += 1
-        elif c == '}':
+        elif text[i] == '}':
             depth -= 1
             if depth == 0:
                 return start, i + 1
@@ -186,6 +147,9 @@ def find_scope(text, start_marker):
 
 def patch_decl(patch, check_only=False):
     path = ROOT / patch['file']
+    if not path.is_file():
+        print(f"[-] [{patch['name']}] File not found: {path}")
+        return False
     text = path.read_text()
     if patch['declaration'] in text:
         print(f"[+] [{patch['name']}] Declaration already present")
@@ -199,56 +163,49 @@ def patch_decl(patch, check_only=False):
         print(preview(new_text, patch['declaration']))
         return True
     path.write_text(new_text)
-    print(f"[+] [{patch['name']}] Patched and verified in {patch['file']}")
-    print(preview(new_text, patch['declaration']))
+    print(f"[+] [{patch['name']}] Patched {patch['file']}")
     return True
 
 
 def patch_func(patch, check_only=False):
     path = ROOT / patch['file']
+    if not path.is_file():
+        print(f"[-] [{patch['name']}] File not found: {path}")
+        return False
     text = path.read_text()
     start, end = find_scope(text, patch['scope_start'])
     if start is None:
         print(f"[-] [{patch['name']}] Scope start not found: {patch['scope_start']}")
         return False
     scoped = text[start:end]
-    marker = patch.get('duplicate_marker')
-    if marker and marker in scoped:
+    marker = patch['duplicate_marker']
+    if marker in scoped:
         print(f"[+] [{patch['name']}] Handler already present in scoped function, skipping")
-        print(preview(scoped, marker))
         return True
     new_scoped = insert_once(scoped, patch['anchor_line'], patch['insert_block'], patch['mode'])
     if new_scoped is None:
         print(f"[-] [{patch['name']}] Scoped anchor not found: {patch['anchor_line']}")
         return False
     if check_only:
-        line = patch['insert_block'].splitlines()[1].strip()
         print(f"[+] [{patch['name']}] Dry-run function patch preview")
-        print(preview(new_scoped, line))
+        print(preview(new_scoped, marker))
         return True
-    new_text = text[:start] + new_scoped + text[end:]
-    path.write_text(new_text)
-    line = patch['insert_block'].splitlines()[1].strip()
-    print(f"[+] [{patch['name']}] Patched and verified in {patch['file']}")
-    print(preview(new_scoped, line))
+    path.write_text(text[:start] + new_scoped + text[end:])
+    print(f"[+] [{patch['name']}] Patched {patch['file']}")
     return True
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--check', action='store_true')
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--check', action='store_true', help='Preview only; do not write files')
+    args = parser.parse_args()
 
-    print('[+] Static audit passed')
-    print('[*] Applying declaration patches')
+    print('[*] Starting KernelSU hook injection')
     ok = True
     for patch in DECL_PATCHES:
-        ok &= patch_decl(patch, check_only=args.check)
-
-    print('[*] Applying function hook patches')
+        ok = patch_decl(patch, args.check) and ok
     for patch in FUNC_PATCHES:
-        ok &= patch_func(patch, check_only=args.check)
-
+        ok = patch_func(patch, args.check) and ok
     if not ok:
         sys.exit(1)
     print('[+] All patch operations completed')
