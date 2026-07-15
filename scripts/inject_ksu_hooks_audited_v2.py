@@ -31,7 +31,7 @@ PATCHES = [
         "name": "read",
         "filepath": "fs/read_write.c",
         "func_sig": "vfs_read(",
-        "anchor_line": "if (!(file->f_mode & FMODE_CAN_READ))",
+        "anchor_line": "if (!(file->f_mode & FMODE_READ))",
         "mode": "before",
         "hook_code": [
             "#ifdef CONFIG_KSU",
