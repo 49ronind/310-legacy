@@ -14,6 +14,9 @@ jobs:
       - name: Verify hook injector syntax
         run: python3 -m py_compile scripts/inject_ksu_hooks_audited_v2.py
 
+      - name: Verify path_umount patch file exists
+        run: test -f patches/0001-backport-path_umount.patch
+
       - name: Install Dependencies & Setup Toolchain Symlinks
         run: |
           sudo apt-get update
@@ -26,6 +29,23 @@ jobs:
 
       - name: Clone Mahiro Kernel (KernelSU Branch)
         run: git clone --depth=1 --branch KernelSU https://github.com/utziacre/android_kernel_xiaomi_nabu.git kernel
+
+      - name: Check path_umount patch applicability
+        run: |
+          cd kernel
+          git apply --check ../patches/0001-backport-path_umount.patch
+
+      - name: Apply path_umount backport
+        run: |
+          cd kernel
+          git apply ../patches/0001-backport-path_umount.patch
+
+      - name: Verify path_umount backport applied
+        run: |
+          cd kernel
+          grep -n "int path_umount(struct path \*path, int flags)" fs/namespace.c
+          grep -n "static int can_umount(const struct path \*path, int flags)" fs/namespace.c
+          grep -n "mntput_no_expire(mnt);" fs/namespace.c
 
       - name: Inject KernelSU-Next v3.1.0-legacy
         run: |
