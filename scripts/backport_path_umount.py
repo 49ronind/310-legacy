@@ -41,8 +41,7 @@ int path_umount(struct path *path, int flags)
 	return ret;
 }
 
-""".lstrip('
-')
+""".lstrip('\n')
 
 DUPLICATE_MARKERS = [
     'static int can_umount(const struct path *path, int flags)',
@@ -61,8 +60,7 @@ def preview(text, needle, radius=6):
         if needle in line:
             start = max(0, i - radius)
             end = min(len(lines), i + radius + 1)
-            return '
-'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
+            return '\n'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
     return '(preview unavailable)'
 
 
