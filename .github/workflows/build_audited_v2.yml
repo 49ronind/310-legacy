@@ -14,8 +14,8 @@ jobs:
       - name: Verify hook injector syntax
         run: python3 -m py_compile scripts/inject_ksu_hooks_audited_v2.py
 
-      - name: Verify path_umount patch file exists
-        run: test -f patches/0001-backport-path_umount.patch
+      - name: Verify path_umount backport syntax
+        run: python3 -m py_compile scripts/backport_path_umount.py
 
       - name: Install Dependencies & Setup Toolchain Symlinks
         run: |
@@ -30,15 +30,15 @@ jobs:
       - name: Clone Mahiro Kernel (KernelSU Branch)
         run: git clone --depth=1 --branch KernelSU https://github.com/utziacre/android_kernel_xiaomi_nabu.git kernel
 
-      - name: Check path_umount patch applicability
+      - name: Check path_umount backport
         run: |
           cd kernel
-          git apply --check ../patches/0001-backport-path_umount.patch
+          python3 ../scripts/backport_path_umount.py --check
 
       - name: Apply path_umount backport
         run: |
           cd kernel
-          git apply ../patches/0001-backport-path_umount.patch
+          python3 ../scripts/backport_path_umount.py
 
       - name: Verify path_umount backport applied
         run: |
@@ -77,24 +77,15 @@ jobs:
       - name: Generate Nabu Defconfig
         run: |
           cd kernel
-          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            O=out nabu_defconfig
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out nabu_defconfig
           echo "CONFIG_KSU=y" >> out/.config
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> out/.config
-          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            O=out olddefconfig
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out olddefconfig
 
       - name: Compile Kernel
         run: |
           cd kernel
-          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            O=out -j$(nproc) Image
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out -j$(nproc) Image
 
       - name: Compress Image
         run: |
