@@ -6,43 +6,42 @@ import sys
 ROOT = Path('.')
 TARGET = ROOT / 'fs/namespace.c'
 
-INSERT_BLOCK = r'''
+INSERT_BLOCK = """
 static int can_umount(const struct path *path, int flags)
 {
-\tstruct mount *mnt = real_mount(path->mnt);
+	struct mount *mnt = real_mount(path->mnt);
 
-\tif (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
-\t\treturn -EINVAL;
-\tif (!may_mount())
-\t\treturn -EPERM;
-\tif (path->dentry != path->mnt->mnt_root)
-\t\treturn -EINVAL;
-\tif (!check_mnt(mnt))
-\t\treturn -EINVAL;
-\tif (mnt->mnt.mnt_flags & MNT_LOCKED) /* Check optimistically */
-\t\treturn -EINVAL;
-\tif (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
-\t\treturn -EPERM;
-\treturn 0;
+	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
+		return -EINVAL;
+	if (!may_mount())
+		return -EPERM;
+	if (path->dentry != path->mnt->mnt_root)
+		return -EINVAL;
+	if (!check_mnt(mnt))
+		return -EINVAL;
+	if (mnt->mnt.mnt_flags & MNT_LOCKED) /* Check optimistically */
+		return -EINVAL;
+	if (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
+		return -EPERM;
+	return 0;
 }
 
 int path_umount(struct path *path, int flags)
 {
-\tstruct mount *mnt = real_mount(path->mnt);
-\tint ret;
+	struct mount *mnt = real_mount(path->mnt);
+	int ret;
 
-\tret = can_umount(path, flags);
-\tif (!ret)
-\t\tret = do_umount(mnt, flags);
+	ret = can_umount(path, flags);
+	if (!ret)
+		ret = do_umount(mnt, flags);
 
-\t/* we mustn't call path_put() as that would clear mnt_expiry_mark */
-\tdput(path->dentry);
-\tmntput_no_expire(mnt);
-\treturn ret;
+	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
+	dput(path->dentry);
+	mntput_no_expire(mnt);
+	return ret;
 }
 
-'''.lstrip('
-')
+""".lstrip('\n')
 
 DUPLICATE_MARKERS = [
     'static int can_umount(const struct path *path, int flags)',
@@ -50,19 +49,10 @@ DUPLICATE_MARKERS = [
 ]
 
 ANCHORS = [
-    '
-#endif
-
-/*
- * Now umount can handle mount points as well as block devices.
-',
-    '
-#endif
-
-/*
-  * Now umount can handle mount points as well as block devices.
-',
+    '\n#endif\n\n/*\n * Now umount can handle mount points as well as block devices.\n',
+    '\n#endif\n\n/*\n  * Now umount can handle mount points as well as block devices.\n',
 ]
+
 
 def preview(text, needle, radius=6):
     lines = text.splitlines()
@@ -70,18 +60,20 @@ def preview(text, needle, radius=6):
         if needle in line:
             start = max(0, i - radius)
             end = min(len(lines), i + radius + 1)
-            return '
-'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
+            return '\n'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
     return '(preview unavailable)'
+
 
 def already_present(text):
     return all(marker in text for marker in DUPLICATE_MARKERS)
+
 
 def insert_before_anchor(text, anchor, block):
     idx = text.find(anchor)
     if idx < 0:
         return None
     return text[:idx] + block + text[idx:]
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -98,3 +90,36 @@ def main():
         print('[+] path_umount backport already present, skipping')
         print(preview(text, 'int path_umount(struct path *path, int flags)'))
         return
+
+    new_text = None
+    matched_anchor = None
+    for anchor in ANCHORS:
+        new_text = insert_before_anchor(text, anchor, INSERT_BLOCK)
+        if new_text is not None:
+            matched_anchor = anchor
+            break
+
+    if new_text is None:
+        print('[-] No safe anchor found in fs/namespace.c')
+        print('[-] Expected one of the known anchors before the umount comment block')
+        sys.exit(1)
+
+    if args.check:
+        print('[+] Dry-run passed for path_umount backport')
+        print(f'[+] Matched anchor: {matched_anchor.strip().splitlines()[-1]}')
+        print(preview(new_text, 'int path_umount(struct path *path, int flags)'))
+        return
+
+    TARGET.write_text(new_text)
+
+    verify_text = TARGET.read_text()
+    if not already_present(verify_text):
+        print('[-] Verification failed after write')
+        sys.exit(1)
+
+    print('[+] path_umount backport applied successfully')
+    print(preview(verify_text, 'int path_umount(struct path *path, int flags)'))
+
+
+if __name__ == '__main__':
+    main()
