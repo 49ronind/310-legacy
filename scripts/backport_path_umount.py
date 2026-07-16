@@ -49,8 +49,14 @@ DUPLICATE_MARKERS = [
 ]
 
 ANCHORS = [
-    '\n#endif\n\n/*\n * Now umount can handle mount points as well as block devices.\n',
-    '\n#endif\n\n/*\n  * Now umount can handle mount points as well as block devices.\n',
+    '
+/*
+ * Now umount can handle mount points as well as block devices.
+',
+    '
+/*
+  * Now umount can handle mount points as well as block devices.
+',
 ]
 
 
