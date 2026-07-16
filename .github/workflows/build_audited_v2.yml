@@ -1,4 +1,3 @@
-          path: Image.gz
 name: Build Nabu HyperOS KernelSU-Next
 
 on:
