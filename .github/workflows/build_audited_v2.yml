@@ -77,15 +77,24 @@ jobs:
       - name: Generate Nabu Defconfig
         run: |
           cd kernel
-          make ARCH=arm64 CC=clang-14 LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out nabu_defconfig
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            O=out nabu_defconfig
           echo "CONFIG_KSU=y" >> out/.config
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> out/.config
-          make ARCH=arm64 CC=clang-14 LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out olddefconfig
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            O=out olddefconfig
 
       - name: Compile Kernel
         run: |
           cd kernel
-          make ARCH=arm64 CC=clang-14 LD=ld.lld-14             CROSS_COMPILE=aarch64-linux-gnu-             CROSS_COMPILE_ARM32=arm-linux-gnueabi-             O=out -j$(nproc) Image
+          make ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            O=out -j$(nproc) Image
 
       - name: Compress Image
         run: |
