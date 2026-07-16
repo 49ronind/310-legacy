@@ -35,10 +35,14 @@ jobs:
           cd -
           cp -r /tmp/ksu-next/kernel drivers/kernelsu
 
+      - name: Download Durka manual hooks
+        run: |
+          curl -L https://raw.githubusercontent.com/DurkaEbanaya/nabu-hyperos-ksu-kernel/main/manual-hooks.patch -o /tmp/manual-hooks.patch
+
       - name: Apply Durka manual hooks
         run: |
           cd kernel
-          patch --forward --batch -p1 < ../scripts/manual-hooks.patch
+          patch --forward --batch -p1 < /tmp/manual-hooks.patch
 
       - name: Verify Durka manual hooks
         run: |
