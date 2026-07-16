@@ -41,7 +41,8 @@ int path_umount(struct path *path, int flags)
 	return ret;
 }
 
-""".lstrip('\n')
+""".lstrip('
+')
 
 DUPLICATE_MARKERS = [
     'static int can_umount(const struct path *path, int flags)',
@@ -49,12 +50,8 @@ DUPLICATE_MARKERS = [
 ]
 
 ANCHORS = [
-    "
-/*
- * Now umount can handle mount points as well as block devices.",
-    "
-/*
-  * Now umount can handle mount points as well as block devices.",
+    "\n/*\n * Now umount can handle mount points as well as block devices.\n",
+    "\n/*\n  * Now umount can handle mount points as well as block devices.\n",
 ]
 
 
@@ -64,7 +61,8 @@ def preview(text, needle, radius=6):
         if needle in line:
             start = max(0, i - radius)
             end = min(len(lines), i + radius + 1)
-            return '\n'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
+            return '
+'.join(f'{n + 1}: {lines[n]}' for n in range(start, end))
     return '(preview unavailable)'
 
 
